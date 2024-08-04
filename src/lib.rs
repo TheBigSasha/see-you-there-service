@@ -15,10 +15,9 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
         // ...
     }
     router
-        .get_async(
-            "/",
-            |_req, _ctx| async move { Response::ok("Hello, World!") },
-        )
+        .get_async("/", |_req, _ctx| async move {
+            Response::ok("thebigsasha's 'met you there' / 'see you there' service API")
+        })
         .get_async("/account/:id", |_req, ctx| async move {
             if let Some(id) = ctx.param("id") {
                 let accounts = ctx.kv("ACCOUNTS")?;
