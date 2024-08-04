@@ -1,4 +1,4 @@
-name = "syt"
+name = "see-you-there-service"
 main = "build/worker/shim.mjs"
 compatibility_date = "2024-08-04"
 
