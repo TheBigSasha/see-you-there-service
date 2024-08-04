@@ -1,5 +1,5 @@
 [package]
-name = "see-you-there"
+name = "syt"
 version = "0.1.0"
 edition = "2021"
 authors = [ "sasha <gitcommit@thebigsasha.com>" ]
@@ -15,8 +15,7 @@ wasm-opt = false
 crate-type = ["cdylib"]
 
 [dependencies]
-worker = { version="0.2.0", features=['http', 'axum'] }
-worker-macros = { version="0.2.0", features=['http'] }
-axum  = { version = "0.7", default-features = false }
-tower-service = "0.3.2"
+worker = { version="0.2.0" }
+worker-macros = { version="0.2.0" }
 console_error_panic_hook = { version = "0.1.1" }
+serde = "1.0.204"
