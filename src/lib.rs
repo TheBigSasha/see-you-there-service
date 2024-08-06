@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use worker::*;
 
 //TODO: https://github.com/cloudflare/workers-rs?tab=readme-ov-file#define-a-durable-object-in-rust
+//TODO: https://mailtrap.io/blog/rust-send-email/
 
 #[event(fetch)]
 pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Response> {
