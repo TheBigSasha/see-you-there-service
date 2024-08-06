@@ -2,7 +2,7 @@
 name = "syt"
 version = "0.1.0"
 edition = "2021"
-authors = [ "sasha <gitcommit@thebigsasha.com>" ]
+authors = ["sasha <gitcommit@thebigsasha.com>"]
 
 [package.metadata.release]
 release = false
@@ -15,8 +15,7 @@ wasm-opt = false
 crate-type = ["cdylib"]
 
 [dependencies]
-worker = { version="0.2.0" }
-worker-macros = { version="0.2.0" }
+worker = { version = "0.2.0" }
+worker-macros = { version = "0.2.0" }
 console_error_panic_hook = { version = "0.1.1" }
 serde = "1.0.204"
-lettre = "0.11.7"
