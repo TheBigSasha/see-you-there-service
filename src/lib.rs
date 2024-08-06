@@ -3,6 +3,7 @@ use worker::*;
 
 //TODO: https://github.com/cloudflare/workers-rs?tab=readme-ov-file#define-a-durable-object-in-rust
 //TODO: https://mailtrap.io/blog/rust-send-email/
+//TODO: D1 database https://github.com/cloudflare/workers-rs?tab=readme-ov-file#d1-databases
 
 #[durable_object]
 pub struct MetSeeItem {
@@ -60,6 +61,13 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
     router
         .get_async("/", |_req, _ctx| async move {
             Response::ok("thebigsasha's 'met you there' / 'see you there' service API")
+        })
+        .post_async("/collect-email", |mut req, _ctx| async move {
+            let body = req.json::<MetSeeItem>().await?;
+            Response::ok(format!(
+                "Hello, {}! You have successfully posted a 'collect email' message to event {}",
+                body.name, body.eventID
+            ))
         })
         .post_async("/metyouthere", |mut req, _ctx| async move {
             let body = req.json::<MetSeeItem>().await?;
