@@ -19,6 +19,26 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
     let router = Router::new();
 
     router
+        .get_async("/listallmessages", |_req, ctx| async move {
+            let db = ctx.env.d1("DB")?;
+            let query = "SELECT * FROM messages";
+            let result = db.prepare(query).all().await?;
+            if(result.success()) {
+                println!("Success");
+            }else {
+                return Response::error(format!("Error: {}", result.error().unwrap()), 500);
+            }
+            println!("Extracting results");
+            let messages: Vec<MetSeeItem> = result.results()?;
+            println!("Found {:?} messages", messages.len());
+            let items = messages
+                .into_iter()
+                .map(|msg| format!("{}: {}", msg.name, msg.message))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            Response::ok(format!("Hello! Here are all the messages:\n{}", items))
+        })
         .get_async("/", |_req, _ctx| async move {
             Response::ok("thebigsasha's 'met you there' / 'see you there' service API")
         })
@@ -26,7 +46,9 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
             let body = req.json::<MetSeeItem>().await?;
 
             // Store the message in D1
-            let db = ctx.env.d1("met-you-there-dbDB")?;
+            let db = ctx.env.d1("DB")?;
+            let create_msgs = "CREATE TABLE IF NOT EXISTS messages (name TEXT, email TEXT, url TEXT, message TEXT, eventID TEXT, hasMet BOOLEAN, code TEXT)";
+            db.prepare(create_msgs).run().await?;
             let query = "INSERT INTO messages (name, email, url, message, eventID, hasMet, code) VALUES (?, ?, ?, ?, ?, ?, ?)";
             db.prepare(query)
                 .bind(&[
@@ -40,26 +62,20 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
                 ])?
                 .run()
                 .await?;
-
-            // Send email using MailChannels
-            // let email = Email::new()
-            //     .set_from(("noreply@example.com", "Met You There"))
-            //     .set_to(body.email.as_str())
-            //     .set_subject("Collect Email Confirmation")
-            //     .set_html(format!("<p>Hello, {}! You have successfully posted a 'collect email' message to event {}</p>", body.name, body.eventID));
-
-            // email.send().await?;
 
             Response::ok(format!(
                 "Hello! Successfully collected email for event"            ))
         })
+
         .post_async("/metyouthere", |mut req, ctx| async move {
             let body = req.json::<MetSeeItem>().await?;
 
             // Store the message in D1
-            let db = ctx.env.d1("MET_DB")?;
+            let db = ctx.env.d1("DB")?;
+            let create_msgs = "CREATE TABLE IF NOT EXISTS messages (name TEXT, email TEXT, url TEXT, message TEXT, eventID TEXT, hasMet BOOLEAN, code TEXT)";
+            db.prepare(create_msgs).run().await?;
             let query = "INSERT INTO messages (name, email, url, message, eventID, hasMet, code) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            db.prepare(query)
+            let result = db.prepare(query)
                 .bind(&[
                     body.name.into(),
                     body.email.into(),
@@ -72,17 +88,14 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
                 .run()
                 .await?;
 
-            // Send email using MailChannels
-            // let email = Email::new()
-            //     .set_from(("noreply@example.com", "Met You There"))
-            //     .set_to(body.email.as_str())
-            //     .set_subject("Met You There Confirmation")
-            //     .set_html(format!("<p>Hello, {}! You have successfully posted a 'met you there' message to event {}</p>", body.name, body.eventID));
-
-            // email.send().await?;
+            if result.success() {
+                println!("Success");
+            } else {
+                return Response::error(format!("Error: {}", result.error().unwrap()), 500);
+            }
 
             Response::ok(format!(
-                "Hello! You have successfully posted a 'met you there' message to event",
+                "Hello! You have successfully posted a 'met you there' message this event",
             ))
         })
         // ... (other routes remain unchanged)
