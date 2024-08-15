@@ -23,11 +23,11 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
             let result = db.prepare(query).all().await?;
             if(result.success()) {
                 println!("Success");
-                let res = result.results()?;
+                let res: Vec<MetSeeItem> = result.results()?;
                 if res.len() == 0 {
                     return Response::ok("No tables found");
                 }else {
-                    return Response::ok(String::from(res.get(0).unwrap().get(1).unwrap()));
+                return Response::ok(format!("Hello! Found {:?} tables", res.len()));
                 }
             }else {
                 return Response::error(format!("Error: {}", result.error().unwrap()), 500);
@@ -61,9 +61,9 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
 
             // Store the message in D1
             let db = ctx.env.d1("DB")?;
-            let create_msgs = "CREATE TABLE IF NOT EXISTS messages (name TEXT, email TEXT, url TEXT, message TEXT, eventID TEXT, hasMet BOOLEAN, code TEXT)";
+            let create_msgs = "CREATE TABLE IF NOT EXISTS messages (name TEXT, email TEXT, url TEXT, message TEXT, event_id TEXT, has_met BOOLEAN, code TEXT)";
             db.prepare(create_msgs).run().await?;
-            let query = "INSERT INTO messages (name, email, url, message, eventID, hasMet, code) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            let query = "INSERT INTO messages (name, email, url, message, event_id, has_met, code) VALUES (?, ?, ?, ?, ?, ?, ?)";
             db.prepare(query)
                 .bind(&[
                     body.name.into(),
@@ -86,9 +86,15 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
 
             // Store the message in D1
             let db = ctx.env.d1("DB")?;
-            let create_msgs = "CREATE TABLE IF NOT EXISTS messages (name TEXT, email TEXT, url TEXT, message TEXT, eventID TEXT, hasMet BOOLEAN, code TEXT)";
-            db.prepare(create_msgs).run().await?;
-            let query = "INSERT INTO messages (name, email, url, message, eventID, hasMet, code) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            let create_msgs = "CREATE TABLE IF NOT EXISTS messages (name TEXT, email TEXT, url TEXT, message TEXT, event_id TEXT, has_met BOOLEAN, code TEXT)";
+            let create_res = db.prepare(create_msgs).run().await?;
+            if create_res.success() {
+                println!("Success");
+            } else {
+                return Response::error(format!("Error: {}", create_res.error().unwrap()), 500);
+            }
+
+            let query = "INSERT INTO messages (name, email, url, message, event_id, has_met, code) VALUES (?, ?, ?, ?, ?, ?, ?)";
             let result = db.prepare(query)
                 .bind(&[
                     body.name.into(),
