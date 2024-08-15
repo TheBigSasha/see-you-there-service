@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 use serde::{Deserialize, Serialize};
 use worker::*;
 
@@ -9,8 +7,8 @@ struct MetSeeItem {
     email: String,
     url: String,
     message: String,
-    eventID: String,
-    hasMet: bool,
+    event_id: String,
+    has_met: bool,
     code: String,
 }
 
@@ -19,6 +17,22 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
     let router = Router::new();
 
     router
+        .get_async("/db_read_test", |_req, ctx| async move {
+            let db = ctx.env.d1("DB")?;
+            let query = "PRAGMA table_list";
+            let result = db.prepare(query).all().await?;
+            if(result.success()) {
+                println!("Success");
+                let res = result.results()?;
+                if res.len() == 0 {
+                    return Response::ok("No tables found");
+                }else {
+                    return Response::ok(String::from(res.get(0).unwrap().get(1).unwrap()));
+                }
+            }else {
+                return Response::error(format!("Error: {}", result.error().unwrap()), 500);
+            }
+        })
         .get_async("/listallmessages", |_req, ctx| async move {
             let db = ctx.env.d1("DB")?;
             let query = "SELECT * FROM messages";
@@ -56,8 +70,8 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
                     body.email.into(),
                     body.url.into(),
                     body.message.into(),
-                    body.eventID.into(),
-                    body.hasMet.into(),
+                    body.event_id.into(),
+                    body.has_met.into(),
                     body.code.into(),
                 ])?
                 .run()
@@ -81,8 +95,8 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
                     body.email.into(),
                     body.url.into(),
                     body.message.into(),
-                    body.eventID.into(),
-                    body.hasMet.into(),
+                    body.event_id.into(),
+                    body.has_met.into(),
                     body.code.into(),
                 ])?
                 .run()
