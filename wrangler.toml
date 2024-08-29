@@ -1,4 +1,4 @@
-name = "d1-example"
+name = "syt-ts-service"
 main = "src/index.ts"
 compatibility_date = "2023-11-21"
 
