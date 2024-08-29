@@ -91,7 +91,7 @@ app.post("/api/items", async (c) => {
     c.status(500);
     return c.json({ message: "Something went wrong" });
   }
-// });
+});
 
 // // Read all MetSeeItems for a specific event
 // app.get("/api/items/:event_id", async (c) => {
