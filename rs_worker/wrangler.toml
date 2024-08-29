@@ -6,6 +6,6 @@ compatibility_date = "2024-08-04"
 command = "cargo install -q worker-build && worker-build --release"
 
 [[d1_databases]]
-binding = "DB"                         # available in your Worker on env.DB
-database_name = "met-you-there-db"
-database_id = "afeafeuiafnwe8247r2qjf"
+binding = "DB"                                       # available in your Worker on env.DB
+database_name = "syt-ts"
+database_id = "4ec758c4-921e-44c2-83ea-261bc9345484"

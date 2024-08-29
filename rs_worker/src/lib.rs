@@ -145,6 +145,5 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
         .run(req, env)
         .await
         // ... (other routes remain unchanged)
-        .run(req, env)
-        .await
+
 }
