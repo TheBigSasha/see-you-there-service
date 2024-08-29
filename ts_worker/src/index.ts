@@ -91,57 +91,57 @@ app.post("/api/items", async (c) => {
     c.status(500);
     return c.json({ message: "Something went wrong" });
   }
-});
+// });
 
-// Read all MetSeeItems for a specific event
-app.get("/api/items/:event_id", async (c) => {
-  const { event_id } = c.req.param();
-  const { results } = await c.env.DB.prepare(
-    `SELECT * FROM met_see_items WHERE event_id = ?`,
-  )
-    .bind(event_id)
-    .all();
-  return c.json(results);
-});
+// // Read all MetSeeItems for a specific event
+// app.get("/api/items/:event_id", async (c) => {
+//   const { event_id } = c.req.param();
+//   const { results } = await c.env.DB.prepare(
+//     `SELECT * FROM met_see_items WHERE event_id = ?`,
+//   )
+//     .bind(event_id)
+//     .all();
+//   return c.json(results);
+// });
 
-// Update a MetSeeItem
-app.put("/api/items/:id", async (c) => {
-  const { id } = c.req.param();
-  const item: Partial<MetSeeItem> = await c.req.json();
+// // Update a MetSeeItem
+// app.put("/api/items/:id", async (c) => {
+//   const { id } = c.req.param();
+//   const item: Partial<MetSeeItem> = await c.req.json();
 
-  const setClauses = Object.keys(item)
-    .map((key) => `${key} = ?`)
-    .join(", ");
-  const query = `UPDATE met_see_items SET ${setClauses} WHERE id = ?`;
+//   const setClauses = Object.keys(item)
+//     .map((key) => `${key} = ?`)
+//     .join(", ");
+//   const query = `UPDATE met_see_items SET ${setClauses} WHERE id = ?`;
 
-  const { success } = await c.env.DB.prepare(query)
-    .bind(...Object.values(item), id)
-    .run();
+//   const { success } = await c.env.DB.prepare(query)
+//     .bind(...Object.values(item), id)
+//     .run();
 
-  if (success) {
-    return c.json({ message: "Updated" });
-  } else {
-    c.status(500);
-    return c.json({ message: "Something went wrong" });
-  }
-});
+//   if (success) {
+//     return c.json({ message: "Updated" });
+//   } else {
+//     c.status(500);
+//     return c.json({ message: "Something went wrong" });
+//   }
+// });
 
-// Delete a MetSeeItem
-app.delete("/api/items/:id", async (c) => {
-  const { id } = c.req.param();
-  const { success } = await c.env.DB.prepare(
-    `DELETE FROM met_see_items WHERE id = ?`,
-  )
-    .bind(id)
-    .run();
+// // Delete a MetSeeItem
+// app.delete("/api/items/:id", async (c) => {
+//   const { id } = c.req.param();
+//   const { success } = await c.env.DB.prepare(
+//     `DELETE FROM met_see_items WHERE id = ?`,
+//   )
+//     .bind(id)
+//     .run();
 
-  if (success) {
-    return c.json({ message: "Deleted" });
-  } else {
-    c.status(500);
-    return c.json({ message: "Something went wrong" });
-  }
-});
+//   if (success) {
+//     return c.json({ message: "Deleted" });
+//   } else {
+//     c.status(500);
+//     return c.json({ message: "Something went wrong" });
+//   }
+// });
 
 app.onError((err, c) => {
   console.error(`${err}`);
