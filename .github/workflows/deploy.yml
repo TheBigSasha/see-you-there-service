@@ -22,6 +22,7 @@ jobs:
         with:
           node-version: "14"
           cache: "pnpm"
+          working-directory: ./ts_worker
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:
