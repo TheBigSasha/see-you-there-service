@@ -1,0 +1,8 @@
+name = "d1-example"
+main = "src/index.ts"
+compatibility_date = "2023-11-21"
+
+[[d1_databases]]
+binding = "DB"                                       # i.e. available in your Worker on env.DB
+database_name = "syt-ts"
+database_id = "4ec758c4-921e-44c2-83ea-261bc9345484" # Replace with your ID from `wrangler d1 create`
