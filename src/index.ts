@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { validator } from "hono/validator";
-import sgMail from "@sendgrid/mail";
 // import translations from "./translations.json"; //TODO: internationalize SYT messages.
 
 const DEFAULT_LOCALE = "en";
@@ -124,8 +123,8 @@ app.post("/api/items", validateMetSeeItem, async (c) => {
   const item = c.req.valid("json");
 
   const { success } = await c.env.DB.prepare(
-    `INSERT INTO met_see_items (name, email, url, message, event_id, has_met, code)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO met_see_items (name, email, url, message, event_id, has_met, code, locale)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       item.name,
@@ -135,24 +134,47 @@ app.post("/api/items", validateMetSeeItem, async (c) => {
       item.event_id,
       item.has_met,
       item.code,
+      item.locale,
     )
     .run();
 
   if (success) {
-    // Send email using SendGrid
-    sgMail.setApiKey(c.env.SENDGRID_API_KEY);
-    const msg = {
-      to: item.email,
-      from: "metyouthere@thebigsasha.com", // Change this to your verified sender
-      subject: "Hi from Sasha (Alex) :)",
-      text: `Hi, ${item.name}! It's nice to meet you!`,
-      html: `Hi, ${item.name}! Thanks for connecting with me! If you want to reach out, you can email me at <a href="mailto:syt@thebigsasha.com">syt@thebigsasha.com</a> or schedule a call here <a href="https://cal.com/sasha/15min">cal.com/sasha</a>. Hope to hear from you soon!`,
+    // Send email using SendGrid API directly
+    const sendgridUrl = "https://api.sendgrid.com/v3/mail/send";
+    const sendgridData = {
+      personalizations: [
+        {
+          to: [{ email: item.email, name: item.name }],
+          subject: "Hi from Sasha (Alex) :)",
+        },
+      ],
+      from: { email: "metyouthere@thebigsasha.com", name: "Sasha" },
+      content: [
+        {
+          type: "text/html",
+          value: `Hi, ${item.name}! Thanks for connecting with me! If you want to reach out, you can email me at <a href="mailto:syt@thebigsasha.com">syt@thebigsasha.com</a> or schedule a call here <a href="https://cal.com/sasha/15min">cal.com/sasha</a>. Hope to hear from you soon!`,
+        },
+      ],
     };
 
     try {
-      await sgMail.send(msg);
-      c.status(201);
-      return c.json({ message: "misc.syt.form.success" });
+      const response = await fetch(sendgridUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${c.env.SENDGRID_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(sendgridData),
+      });
+
+      if (response.ok) {
+        c.status(201);
+        return c.json({ message: "misc.syt.form.success" });
+      } else {
+        console.error("Error sending email:", await response.text());
+        c.status(201);
+        return c.json({ message: "misc.syt.form.success", emailSent: false });
+      }
     } catch (error) {
       console.error("Error sending email:", error);
       c.status(201);
