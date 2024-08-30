@@ -169,7 +169,7 @@ app.post("/api/items", validateMetSeeItem, async (c) => {
 
       if (response.ok) {
         c.status(201);
-        return c.json({ message: "misc.syt.form.success" });
+        return c.json({ message: "misc.syt.form.success", emailSent: true });
       } else {
         console.error("Error sending email:", await response.text());
         c.status(201);
