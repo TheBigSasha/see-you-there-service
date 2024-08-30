@@ -8,7 +8,7 @@ create table met_see_items (
   event_id string,
   has_met boolean,
   code string,
-  locale:string,
+  locale string
 );
 create index idx_met_see_items_event_id on met_see_items (event_id);
 
