@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { validator } from "hono/validator";
 
 interface MetSeeItem {
   name: string;
@@ -10,6 +11,39 @@ interface MetSeeItem {
   has_met: boolean;
   code: string;
 }
+
+const validateMetSeeItem = validator("json", (value, c) => {
+  const { name, email, url, message, event_id, has_met } = value;
+
+  if (typeof name !== "string" || name.length < 2) {
+    return c.json({ message: "misc.syt.form.invalidInput" }, 400);
+  }
+  if (typeof email !== "string" || !email.includes("@")) {
+    return c.json({ message: "misc.syt.form.invalidInput" }, 400);
+  }
+  if (url && typeof url !== "string") {
+    return c.json({ message: "misc.syt.form.invalidInput" }, 400);
+  }
+  if (typeof message !== "string" || message.length < 5) {
+    return c.json({ message: "misc.syt.form.invalidInput" }, 400);
+  }
+  if (typeof event_id !== "string" || event_id.length < 1) {
+    return c.json({ message: "misc.syt.form.invalidInput" }, 400);
+  }
+  if (typeof has_met !== "boolean") {
+    return c.json({ message: "misc.syt.form.invalidInput" }, 400);
+  }
+
+  return {
+    name,
+    email,
+    url: url || "",
+    message,
+    event_id,
+    has_met,
+    code: Math.random().toString(36).substring(2, 8),
+  };
+});
 
 type Bindings = {
   DB: D1Database;
@@ -67,8 +101,9 @@ const rateLimiter = async (c: any, next: () => Promise<void>) => {
 app.use("/api/*", rateLimiter);
 
 // Create a new MetSeeItem
-app.post("/api/items", async (c) => {
-  const item: MetSeeItem = await c.req.json();
+app.post("/api/items", validateMetSeeItem, async (c) => {
+  const item = c.req.valid("json");
+
   const { success } = await c.env.DB.prepare(
     `INSERT INTO met_see_items (name, email, url, message, event_id, has_met, code)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -86,10 +121,10 @@ app.post("/api/items", async (c) => {
 
   if (success) {
     c.status(201);
-    return c.json({ message: "Created" });
+    return c.json({ message: "misc.syt.form.success" });
   } else {
     c.status(500);
-    return c.json({ message: "Something went wrong" });
+    return c.json({ message: "misc.syt.form.error" });
   }
 });
 
