@@ -1,6 +1,13 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { validator } from "hono/validator";
+import sgMail from "@sendgrid/mail";
+// import translations from "./translations.json"; //TODO: internationalize SYT messages.
+
+const DEFAULT_LOCALE = "en";
+const LOCALES = [DEFAULT_LOCALE, "fr", "ru"]; //TODO: Sync with sashaphoto.ca
+const POSSIBLE_LOCALES = [...LOCALES, "pa", "hi", "zh"];
+const LOCALE_REGEX = new RegExp(`^(${POSSIBLE_LOCALES.join("|")})$`);
 
 interface MetSeeItem {
   name: string;
@@ -10,10 +17,11 @@ interface MetSeeItem {
   event_id: string;
   has_met: boolean;
   code: string;
+  locale: string;
 }
 
 const validateMetSeeItem = validator("json", (value, c) => {
-  const { name, email, url, message, event_id, has_met } = value;
+  const { name, email, url, message, event_id, has_met, locale } = value;
 
   if (typeof name !== "string" || name.length < 2) {
     return c.json({ message: "misc.syt.form.invalidInput" }, 400);
@@ -34,9 +42,18 @@ const validateMetSeeItem = validator("json", (value, c) => {
     return c.json({ message: "misc.syt.form.invalidInput" }, 400);
   }
 
+  if (
+    typeof locale !== "string" ||
+    locale.length < 1 ||
+    !LOCALE_REGEX.test(locale)
+  ) {
+    return c.json({ message: "misc.syt.form.invalidInput" }, 400);
+  }
+
   return {
     name,
     email,
+    locale: LOCALES.includes(locale) ? locale : DEFAULT_LOCALE,
     url: url || "",
     message,
     event_id,
@@ -47,6 +64,7 @@ const validateMetSeeItem = validator("json", (value, c) => {
 
 type Bindings = {
   DB: D1Database;
+  SENDGRID_API_KEY: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -100,7 +118,8 @@ const rateLimiter = async (c: any, next: () => Promise<void>) => {
 // Apply rate limiter to all API routes
 app.use("/api/*", rateLimiter);
 
-// Create a new MetSeeItem
+// Create a new MetSeeItem;
+
 app.post("/api/items", validateMetSeeItem, async (c) => {
   const item = c.req.valid("json");
 
@@ -120,63 +139,30 @@ app.post("/api/items", validateMetSeeItem, async (c) => {
     .run();
 
   if (success) {
-    c.status(201);
-    return c.json({ message: "misc.syt.form.success" });
+    // Send email using SendGrid
+    sgMail.setApiKey(c.env.SENDGRID_API_KEY);
+    const msg = {
+      to: item.email,
+      from: "metyouthere@thebigsasha.com", // Change this to your verified sender
+      subject: "Hi from Sasha (Alex) :)",
+      text: `Hi, ${item.name}! It's nice to meet you!`,
+      html: `Hi, ${item.name}! Thanks for connecting with me! If you want to reach out, you can email me at <a href="mailto:syt@thebigsasha.com">syt@thebigsasha.com</a> or schedule a call here <a href="https://cal.com/sasha/15min">cal.com/sasha</a>. Hope to hear from you soon!`,
+    };
+
+    try {
+      await sgMail.send(msg);
+      c.status(201);
+      return c.json({ message: "misc.syt.form.success" });
+    } catch (error) {
+      console.error("Error sending email:", error);
+      c.status(201);
+      return c.json({ message: "misc.syt.form.success", emailSent: false });
+    }
   } else {
     c.status(500);
     return c.json({ message: "misc.syt.form.error" });
   }
 });
-
-// // Read all MetSeeItems for a specific event
-// app.get("/api/items/:event_id", async (c) => {
-//   const { event_id } = c.req.param();
-//   const { results } = await c.env.DB.prepare(
-//     `SELECT * FROM met_see_items WHERE event_id = ?`,
-//   )
-//     .bind(event_id)
-//     .all();
-//   return c.json(results);
-// });
-
-// // Update a MetSeeItem
-// app.put("/api/items/:id", async (c) => {
-//   const { id } = c.req.param();
-//   const item: Partial<MetSeeItem> = await c.req.json();
-
-//   const setClauses = Object.keys(item)
-//     .map((key) => `${key} = ?`)
-//     .join(", ");
-//   const query = `UPDATE met_see_items SET ${setClauses} WHERE id = ?`;
-
-//   const { success } = await c.env.DB.prepare(query)
-//     .bind(...Object.values(item), id)
-//     .run();
-
-//   if (success) {
-//     return c.json({ message: "Updated" });
-//   } else {
-//     c.status(500);
-//     return c.json({ message: "Something went wrong" });
-//   }
-// });
-
-// // Delete a MetSeeItem
-// app.delete("/api/items/:id", async (c) => {
-//   const { id } = c.req.param();
-//   const { success } = await c.env.DB.prepare(
-//     `DELETE FROM met_see_items WHERE id = ?`,
-//   )
-//     .bind(id)
-//     .run();
-
-//   if (success) {
-//     return c.json({ message: "Deleted" });
-//   } else {
-//     c.status(500);
-//     return c.json({ message: "Something went wrong" });
-//   }
-// });
 
 app.onError((err, c) => {
   console.error(`${err}`);
