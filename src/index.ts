@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { validator } from "hono/validator";
-import { ulid } from "ulid";
 // import translations from "./translations.json"; //TODO: internationalize SYT messages.
 
 const DEFAULT_LOCALE = "en";
@@ -15,6 +14,12 @@ const UNSUB_URL =
 interface NewsletterSubscription {
   email: string;
   locale: string;
+}
+
+function generateUniqueId(): string {
+  const timestamp = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).substr(2, 5);
+  return `${timestamp}-${randomPart}`;
 }
 
 // Add this validator after the existing validators
@@ -287,7 +292,7 @@ app.post(
   validateNewsletterSubscription,
   async (c) => {
     const { email, locale } = c.req.valid("json");
-    const unsubToken = ulid();
+    const unsubToken = generateUniqueId();
     const now = Date.now();
 
     try {
