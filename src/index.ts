@@ -296,51 +296,91 @@ app.post(
     const now = Date.now();
 
     try {
-      const { success, error } = await c.env.DB.prepare(
-        `INSERT INTO newsletter_subscriptions (email, locale, subscribed_at, is_subscribed, unsub_token)
-        VALUES (?, ?, ?, ?, ?)`,
+      // First, check if the email already exists
+      const existingSubscription = await c.env.DB.prepare(
+        `SELECT is_subscribed, unsub_token FROM newsletter_subscriptions WHERE email = ?`,
       )
-        .bind(email, locale, now, true, unsubToken)
-        .run();
+        .bind(email)
+        .first();
 
-      if (success) {
-        const unsubscribeUrl = `${UNSUB_URL}?token=${unsubToken}`;
-        const emailContent = `
-          <h1>Welcome to Sasha's Newsletter!</h1>
-          <p>Thank you for subscribing. We're excited to keep you updated!</p>
-          <p>And a link to <a href="${unsubscribeUrl}">unsubscribe</a>.</p>
-        `;
+      if (existingSubscription) {
+        if (existingSubscription.is_subscribed) {
+          // Already subscribed
+          c.status(200);
+          return c.json({ message: "misc.newsletter.alreadySubscribed" });
+        } else {
+          // Resubscribing
+          const { success, error } = await c.env.DB.prepare(
+            `UPDATE newsletter_subscriptions
+             SET is_subscribed = true, locale = ?, subscribed_at = ?, unsub_token = ?
+             WHERE email = ?`,
+          )
+            .bind(locale, now, unsubToken, email)
+            .run();
 
-        const emailSent = await sendEmail(
-          c,
-          email,
-          "Welcome to Sasha's Newsletter",
-          emailContent,
-        );
+          if (success) {
+            const unsubscribeUrl = `${UNSUB_URL}?token=${unsubToken}`;
+            const emailContent = `
+              <h1>Welcome Back to Sasha's Newsletter!</h1>
+              <p>We're glad to have you back! You've been resubscribed to our newsletter.</p>
+              <p>If you wish to unsubscribe in the future, you can use this link: <a href="${unsubscribeUrl}">Unsubscribe</a>.</p>
+            `;
 
-        c.status(201);
-        return c.json({
-          message: "misc.newsletter.subscribeSuccess",
-          emailSent: emailSent,
-        });
-      }
-    } catch (error) {
-      if (
-        //@ts-ignore
-        (error.message || "")?.includes("UNIQUE constraint failed")
-      ) {
-        // Email already exists
-        c.status(409);
-        return c.json({ message: "misc.newsletter.emailAlreadySubscribed" });
+            const emailSent = await sendEmail(
+              c,
+              email,
+              "Welcome Back to Sasha's Newsletter",
+              emailContent,
+            );
+
+            c.status(200);
+            return c.json({
+              message: "misc.newsletter.resubscribeSuccess",
+              emailSent: emailSent,
+            });
+          }
+        }
       } else {
-        console.error("Error subscribing to newsletter:", error);
-        c.status(500);
-        return c.json({ message: "misc.newsletter.subscribeError" });
+        // New subscription
+        const { success, error } = await c.env.DB.prepare(
+          `INSERT INTO newsletter_subscriptions (email, locale, subscribed_at, is_subscribed, unsub_token)
+           VALUES (?, ?, ?, ?, ?)`,
+        )
+          .bind(email, locale, now, true, unsubToken)
+          .run();
+
+        if (success) {
+          const unsubscribeUrl = `${UNSUB_URL}?token=${unsubToken}`;
+          const emailContent = `
+            <h1>Welcome to Sasha's Newsletter!</h1>
+            <p>Thank you for subscribing. We're excited to keep you updated!</p>
+            <p>If you wish to unsubscribe in the future, you can use this link: <a href="${unsubscribeUrl}">Unsubscribe</a>.</p>
+          `;
+
+          const emailSent = await sendEmail(
+            c,
+            email,
+            "Welcome to Sasha's Newsletter",
+            emailContent,
+          );
+
+          c.status(201);
+          return c.json({
+            message: "misc.newsletter.subscribeSuccess",
+            emailSent: emailSent,
+          });
+        }
       }
+
+      // If we reach here, there was an error
+      throw new Error("Database operation failed");
+    } catch (error) {
+      console.error("Error in newsletter subscription:", error);
+      c.status(500);
+      return c.json({ message: "misc.newsletter.subscribeError" });
     }
   },
 );
-
 // Unsubscribe from newsletter
 app.get("/api/newsletter/unsubscribe/:token", async (c) => {
   const token = c.req.param("token");
