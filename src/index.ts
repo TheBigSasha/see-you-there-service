@@ -8,6 +8,8 @@ const DEFAULT_LOCALE = "en";
 const LOCALES = [DEFAULT_LOCALE, "fr", "ru"]; //TODO: Sync with sashaphoto.ca
 const POSSIBLE_LOCALES = [...LOCALES, "pa", "hi", "zh"];
 const LOCALE_REGEX = new RegExp(`^(${POSSIBLE_LOCALES.join("|")})$`);
+const UNSUB_URL =
+  "https://syt-ts-service.thebigsasha.workers.dev/api/newsletter/unsubscribe/";
 
 // Add this interface after the existing interfaces
 interface NewsletterSubscription {
@@ -146,6 +148,32 @@ const rateLimiter = async (c: any, next: () => Promise<void>) => {
 // Apply rate limiter to all API routes
 app.use("/api/*", rateLimiter);
 
+const subscriptionRateLimiter = async (c: any, next: () => Promise<void>) => {
+  const ip = c.req.header("CF-Connecting-IP") || c.req.ip;
+  const key = `subscription:${ip}`;
+
+  const SUBSCRIPTION_RATE_LIMIT = 2;
+  const SUBSCRIPTION_RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour in milliseconds
+
+  const now = Date.now();
+  let entry = rateLimitMap.get(key);
+
+  if (!entry || now - entry.timestamp > SUBSCRIPTION_RATE_LIMIT_WINDOW) {
+    entry = { count: 1, timestamp: now };
+  } else if (entry.count >= SUBSCRIPTION_RATE_LIMIT) {
+    c.status(429);
+    return c.json({ message: "misc.newsletter.tooManyRequests" });
+  } else {
+    entry.count++;
+  }
+
+  rateLimitMap.set(key, entry);
+
+  await next();
+};
+
+app.use("/api/newsletter/subscribe", subscriptionRateLimiter);
+
 // Create a new MetSeeItem;
 
 app.post("/api/items", validateMetSeeItem, async (c) => {
@@ -215,6 +243,45 @@ app.post("/api/items", validateMetSeeItem, async (c) => {
   }
 });
 
+async function sendEmail(c: any, to: string, subject: string, content: string) {
+  const sendgridUrl = "https://api.sendgrid.com/v3/mail/send";
+  const sendgridData = {
+    personalizations: [
+      {
+        to: [{ email: to }],
+        subject: subject,
+      },
+    ],
+    from: { email: "newsletter@thebigsasha.com", name: "Sasha's Newsletter" },
+    content: [
+      {
+        type: "text/html",
+        value: content,
+      },
+    ],
+  };
+
+  try {
+    const response = await fetch(sendgridUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${c.env.SENDGRID_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(sendgridData),
+    });
+
+    if (!response.ok) {
+      console.error("Error sending email:", await response.text());
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Error sending email:", error);
+    return false;
+  }
+}
+
 app.post(
   "/api/newsletter/subscribe",
   validateNewsletterSubscription,
@@ -223,21 +290,48 @@ app.post(
     const unsubToken = ulid();
     const now = Date.now();
 
-    const { success, error } = await c.env.DB.prepare(
-      `INSERT OR REPLACE INTO newsletter_subscriptions (email, locale, subscribed_at, is_subscribed, unsub_token)
-     VALUES (?, ?, ?, ?, ?)`,
-    )
-      .bind(email, locale, now, true, unsubToken)
-      .run();
+    try {
+      const { success, error } = await c.env.DB.prepare(
+        `INSERT INTO newsletter_subscriptions (email, locale, subscribed_at, is_subscribed, unsub_token)
+        VALUES (?, ?, ?, ?, ?)`,
+      )
+        .bind(email, locale, now, true, unsubToken)
+        .run();
 
-    if (success) {
-      // TODO: Send welcome email with unsubscribe link
-      c.status(201);
-      return c.json({ message: "misc.newsletter.subscribeSuccess" });
-    } else {
-      console.error("Error subscribing to newsletter:", error);
-      c.status(500);
-      return c.json({ message: "misc.newsletter.subscribeError" });
+      if (success) {
+        const unsubscribeUrl = `${UNSUB_URL}?token=${unsubToken}`;
+        const emailContent = `
+          <h1>Welcome to Sasha's Newsletter!</h1>
+          <p>Thank you for subscribing. We're excited to keep you updated!</p>
+          <p>And a link to <a href="${unsubscribeUrl}">unsubscribe</a>.</p>
+        `;
+
+        const emailSent = await sendEmail(
+          c,
+          email,
+          "Welcome to Sasha's Newsletter",
+          emailContent,
+        );
+
+        c.status(201);
+        return c.json({
+          message: "misc.newsletter.subscribeSuccess",
+          emailSent: emailSent,
+        });
+      }
+    } catch (error) {
+      if (
+        //@ts-ignore
+        (error.message || "")?.includes("UNIQUE constraint failed")
+      ) {
+        // Email already exists
+        c.status(409);
+        return c.json({ message: "misc.newsletter.emailAlreadySubscribed" });
+      } else {
+        console.error("Error subscribing to newsletter:", error);
+        c.status(500);
+        return c.json({ message: "misc.newsletter.subscribeError" });
+      }
     }
   },
 );
