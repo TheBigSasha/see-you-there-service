@@ -27,7 +27,7 @@ const validateNewsletterSubscription = validator("json", (value, c) => {
   const { email, locale } = value;
 
   if (typeof email !== "string" || !email.includes("@")) {
-    return c.json({ message: "misc.newsletter.invalidEmail" }, 400);
+    return c.json({ message: "newsletter.invalidEmail" }, 400);
   }
 
   if (
@@ -35,7 +35,7 @@ const validateNewsletterSubscription = validator("json", (value, c) => {
     locale.length < 1 ||
     !LOCALE_REGEX.test(locale)
   ) {
-    return c.json({ message: "misc.newsletter.invalidLocale" }, 400);
+    return c.json({ message: "newsletter.invalidLocale" }, 400);
   }
 
   return {
@@ -167,7 +167,7 @@ const subscriptionRateLimiter = async (c: any, next: () => Promise<void>) => {
     entry = { count: 1, timestamp: now };
   } else if (entry.count >= SUBSCRIPTION_RATE_LIMIT) {
     c.status(429);
-    return c.json({ message: "misc.newsletter.tooManyRequests" });
+    return c.json({ message: "newsletter.tooManyRequests" });
   } else {
     entry.count++;
   }
@@ -307,7 +307,7 @@ app.post(
         if (existingSubscription.is_subscribed) {
           // Already subscribed
           c.status(200);
-          return c.json({ message: "misc.newsletter.emailAlreadySubscribed" });
+          return c.json({ message: "newsletter.emailAlreadySubscribed" });
         } else {
           // Resubscribing
           const { success, error } = await c.env.DB.prepare(
@@ -335,7 +335,7 @@ app.post(
 
             c.status(200);
             return c.json({
-              message: "misc.newsletter.resubscribeSuccess",
+              message: "newsletter.resubscribeSuccess",
               emailSent: emailSent,
             });
           }
@@ -366,7 +366,7 @@ app.post(
 
           c.status(201);
           return c.json({
-            message: "misc.newsletter.subscribeSuccess",
+            message: "newsletter.subscribeSuccess",
             emailSent: emailSent,
           });
         }
@@ -377,7 +377,7 @@ app.post(
     } catch (error) {
       console.error("Error in newsletter subscription:", error);
       c.status(500);
-      return c.json({ message: "misc.newsletter.subscribeError" });
+      return c.json({ message: "newsletter.subscribeError" });
     }
   },
 );
@@ -392,11 +392,11 @@ app.get("/api/newsletter/unsubscribe/:token", async (c) => {
     .run();
 
   if (success) {
-    return c.json({ message: "misc.newsletter.unsubscribeSuccess" });
+    return c.json({ message: "newsletter.unsubscribeSuccess" });
   } else {
     console.error("Error unsubscribing from newsletter:", error);
     c.status(500);
-    return c.json({ message: "misc.newsletter.unsubscribeError" });
+    return c.json({ message: "newsletter.unsubscribeError" });
   }
 });
 
