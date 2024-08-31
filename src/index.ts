@@ -1,12 +1,41 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { validator } from "hono/validator";
+import { ulid } from "ulid";
 // import translations from "./translations.json"; //TODO: internationalize SYT messages.
 
 const DEFAULT_LOCALE = "en";
 const LOCALES = [DEFAULT_LOCALE, "fr", "ru"]; //TODO: Sync with sashaphoto.ca
 const POSSIBLE_LOCALES = [...LOCALES, "pa", "hi", "zh"];
 const LOCALE_REGEX = new RegExp(`^(${POSSIBLE_LOCALES.join("|")})$`);
+
+// Add this interface after the existing interfaces
+interface NewsletterSubscription {
+  email: string;
+  locale: string;
+}
+
+// Add this validator after the existing validators
+const validateNewsletterSubscription = validator("json", (value, c) => {
+  const { email, locale } = value;
+
+  if (typeof email !== "string" || !email.includes("@")) {
+    return c.json({ message: "misc.newsletter.invalidEmail" }, 400);
+  }
+
+  if (
+    typeof locale !== "string" ||
+    locale.length < 1 ||
+    !LOCALE_REGEX.test(locale)
+  ) {
+    return c.json({ message: "misc.newsletter.invalidLocale" }, 400);
+  }
+
+  return {
+    email,
+    locale: LOCALES.includes(locale) ? locale : DEFAULT_LOCALE,
+  };
+});
 
 interface MetSeeItem {
   name: string;
@@ -183,6 +212,52 @@ app.post("/api/items", validateMetSeeItem, async (c) => {
   } else {
     c.status(500);
     return c.json({ message: "misc.syt.form.error" });
+  }
+});
+
+app.post(
+  "/api/newsletter/subscribe",
+  validateNewsletterSubscription,
+  async (c) => {
+    const { email, locale } = c.req.valid("json");
+    const unsubToken = ulid();
+    const now = Date.now();
+
+    const { success, error } = await c.env.DB.prepare(
+      `INSERT OR REPLACE INTO newsletter_subscriptions (email, locale, subscribed_at, is_subscribed, unsub_token)
+     VALUES (?, ?, ?, ?, ?)`,
+    )
+      .bind(email, locale, now, true, unsubToken)
+      .run();
+
+    if (success) {
+      // TODO: Send welcome email with unsubscribe link
+      c.status(201);
+      return c.json({ message: "misc.newsletter.subscribeSuccess" });
+    } else {
+      console.error("Error subscribing to newsletter:", error);
+      c.status(500);
+      return c.json({ message: "misc.newsletter.subscribeError" });
+    }
+  },
+);
+
+// Unsubscribe from newsletter
+app.get("/api/newsletter/unsubscribe/:token", async (c) => {
+  const token = c.req.param("token");
+
+  const { success, error } = await c.env.DB.prepare(
+    `UPDATE newsletter_subscriptions SET is_subscribed = false WHERE unsub_token = ?`,
+  )
+    .bind(token)
+    .run();
+
+  if (success) {
+    return c.json({ message: "misc.newsletter.unsubscribeSuccess" });
+  } else {
+    console.error("Error unsubscribing from newsletter:", error);
+    c.status(500);
+    return c.json({ message: "misc.newsletter.unsubscribeError" });
   }
 });
 
