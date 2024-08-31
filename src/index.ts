@@ -307,7 +307,7 @@ app.post(
         if (existingSubscription.is_subscribed) {
           // Already subscribed
           c.status(200);
-          return c.json({ message: "misc.newsletter.alreadySubscribed" });
+          return c.json({ message: "misc.newsletter.emailAlreadySubscribed" });
         } else {
           // Resubscribing
           const { success, error } = await c.env.DB.prepare(
